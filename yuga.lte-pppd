@@ -1,0 +1,24 @@
+#!/bin/sh
+# An unforunate wrapper script
+# so that the exit code of pppd may be retrieved
+
+# this is a workaround for issue #651747
+#trap "/system/bin/sleep 1;exit 0" TERM
+
+#export PATH=/system/bin
+
+PPPD_PID=
+
+#setprop "net.gprs.ppp-exit" ""
+
+echo "Starting pppd"
+
+#pppd $*
+pppd connect 'chat -s -v  "ABORT" "NO CARRIER" "" AT OK AT+CGDCONT=1,\"IP\",\"\" OK ATD*99***1# CONNECT' /dev/ttyUSB2 115200 nodetach debug nolock noauth defaultroute usepeerdns  crtscts user card password card -pc -ac $*
+
+PPPD_EXIT=$?
+PPPD_PID=$!
+
+echo "pppd exited with $PPPD_EXIT"
+
+#setprop "net.gprs.ppp-exit" "$PPPD_EXIT"
