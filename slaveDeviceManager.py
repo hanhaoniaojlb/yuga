@@ -70,17 +70,23 @@ class slaveDeviceManager(object):
         while self.taskControlBit:
             if moudleStatus == 0:
                 if self.m_moudle.checkPort():
+                    print 'checkPort ok'
                     moudleStatus = 1
                     self.m_moudle.setMoudleMode()
                 else:
+                    print 'noport'
                     self.sendUpdateStaus("no port")
             if moudleStatus == 1:
                 if self.m_moudle.checkRegister():
+                    print 'register ok'
                     moudleStatus = 2
                 else:
+                    print 'register fail'
                     self.sendUpdateStaus("not register")
             if moudleStatus == 2:
                 self.m_moudle.dialPPP()
+
+                print 'start dial'
                 self.status = "dailing"
                 moudleStatus = 3
             if moudleStatus == 3:
