@@ -11,8 +11,8 @@ import ConfigParser
 
 consttype.MasterIpAddr = '192.168.1.200'
 consttype.MasterPort = 60000
-consttype.SlaveIpAddr = '192.168.1.11'
-consttype.SlaveIpPort = 60001
+consttype.SlaveIpAddr = '192.168.1.200'
+consttype.SlavePort = 60001
 consttype.NotifierPort = 62000
 consttype.ConfigPath = "./config.conf"
 
@@ -77,6 +77,16 @@ class slaveDeviceManager(object):
         self.udpNotifierServer.bind((consttype.SlaveIpAddr, consttype.NotifierPort))
         self.threadListenNotifier = threading.Thread(target=self.notifierListenTarget, name="notifierMsgListen")
         self.threadListenNotifier.start()
+
+    def getPppIpAddr(self):
+        ip = ""
+        info = psutil.net_if_addrs()
+        for k, v in info.items():
+            if k == "ppp0":
+                for item in v:
+                    print item[2]
+                    return item[2]
+        return ip
 
     def moudleMonitorWork(self, task):
         moudleStatus = 0
@@ -215,6 +225,9 @@ class slaveDeviceManager(object):
                         task = "sudo ./dos_client"
                         for para in param:
                             task = task+para+" "
+                        useIp = self.getPppIpAddr()
+                        print "useip "+useIp
+                        task = task + " -o "+useIp
                         self.StartTask(task)
 
                     elif decodeData["task_type"] == "stop":
@@ -306,11 +319,14 @@ class DailMoudleManager(object):
     def stopDialPPP(self):
         os.system('killall pppd')
         time.sleep(2)
-        self.status = 'idle' 
+        self.status = 'idle'
+
 
 
 slaveDevice = slaveDeviceManager()
 slaveDevice.initNetwork()
+
+slaveDevice.getPppIpAddr()
 while True:
     slaveDevice.sendHeartbeat()    
     time.sleep(3)

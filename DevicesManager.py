@@ -85,8 +85,55 @@ class DeviceManager(CSingleton):
         decodeData = json.loads(data)
         if decodeData["type"] == "setting":
             self.socket.sendto(data, (decodeData["target"], consttype.SlaveIpPort))
-        #elif decodeData["type"] == "query":
+        elif decodeData["type"] == "query":
+            target = decodeData["target"]
+            self.reportDevicesStatusToUi(target)
+        elif decodeData["type"] == "task_control":
+            target = decodeData["target"]
+            for device in target:
+                self.socket.sendto(data, (device, consttype.SlaveIpPort))
 
+    def sendUiCmdTaskControl(self, target, control, param):
+        paramEncode = []
+        cmd = {"type": "task_control"}
+        cmd["task_type"] = control
+        paramEncode.append("-h " + param[0])
+        paramEncode.append("-p " + param[1])
+        paramEncode.append("-m " + param[2])
+        paramEncode.append("-i " + param[3])
+
+        cmd["param"] = paramEncode
+        js = json.dumps(cmd, skipkeys=True)
+        self.socket.sendto(js, (target, consttype.SlaveIpPort))
+
+    def reportDevicesStatusToUi(self, target):
+        cmd = {"type": "query_resp"}
+        devices = []
+        if target == "all":
+            for device in self.deviceList:
+                deviceInfo = {}
+                deviceInfo['ip'] = device.name
+                if device.status != "offline":
+                    deviceInfo['status'] = device.status
+                else:
+                    deviceInfo['status'] = "offline"
+                deviceInfo['connections'] = device.connections
+                devices.append(deviceInfo)
+        else:
+            for device in self.deviceList:
+                deviceInfo = {}
+                if device.name == target:
+                    deviceInfo['ip'] = device.name
+                    if device.status != "offline":
+                        deviceInfo['status'] = device.status
+                    else:
+                        deviceInfo['status'] = "offline"
+                    deviceInfo['connections'] = device.connections
+                    devices.append(deviceInfo)
+
+        cmd["devices"] = devices
+        js = json.dumps(cmd, skipkeys=True)
+        self.socket.sendto(js, (consttype.UiIpAddr, consttype.UiPort))
 
     def checkHeartbeat(self, addr):
         if self.deviceList.has_key(addr):
@@ -169,6 +216,7 @@ class slaveDevice(object):
         self.ip = ''
         self.onlineStatus  = 'online'
         self.status = 'unknown'
+        self.connections = 0
         self.lastUpdateTime = None
 
     def startTask(self, param):
