@@ -9,6 +9,7 @@ class interactive(threading.Thread):
 
     def run(self):
         while True:
+
             print '>>',
             cmd = raw_input()
             if cmd == "help":
@@ -36,7 +37,7 @@ class interactive(threading.Thread):
                         param = detail[2:len(detail)]
                     DeviceManager().startOneDevice(name, param)
             elif cmd.find("stopall") == 0:
-                DeviceManager().stopAllDevices(param)
+                DeviceManager().stopAllDevices()
             elif cmd.find("stop") == 0:
                 detail = cmd.split(' ')
                 if len(detail) > 1:

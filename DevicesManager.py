@@ -6,25 +6,39 @@ from socket import *
 import datetime
 import time
 import threading
+import ConfigParser
 
-consttype.MasterIpAddr = (u'127.0.0.1',6600)
-consttype.SlaveIpPort = 6601
+consttype.MasterIpAddr = '192.168.1.200'
+consttype.MasterPort = 60000
+consttype.SlaveIpPort = 60001
+consttype.UiIpAddr = '192.168.1.105'
+consttype.UiPort = 62000
+consttype.ConfigPath = "./config.conf"
 
 
 class DeviceManager(CSingleton):
     def __init__(self):
         self.deviceList = {}
         self.msgList = []
+        self.readConfig()
 
     def registerNewDevice(self, device):
         self.deviceList[device.name] = device
+
+    def readConfig(self):
+        cf = ConfigParser.ConfigParser()
+        cf.read(consttype.ConfigPath)
+        consttype.MasterIpAddr = cf.get("netconfig","master_ipaddr")
+        consttype.MasterPort = int(cf.get("netconfig", "master_port"))
+        consttype.SlaveIpPort = int(cf.get("netconfig", "slave_port"))
+        consttype.UiPort = int(cf.get("netconfig", "ui_port"))
 
     def getDeviceNumbers(self):
         return len(self.deviceList)
 
     def initNetwork(self):
         self.udpServer = socket(AF_INET, SOCK_DGRAM)
-        self.udpServer.bind(consttype.MasterIpAddr)
+        self.udpServer.bind((consttype.MasterIpAddr,consttype.MasterPort))
         self.threadListen = threading.Thread(target=self.udpListenTarget, name="udpListen")
         self.threadListen.start()
         self.threadMsgHandler = threading.Thread(target=self.dealwithMsgTarget, name="msgHandler")
@@ -40,30 +54,41 @@ class DeviceManager(CSingleton):
         while True:
             if len(self.msgList) > 0:
                 data, addr = self.msgList.pop(0)
-                decodeData = json.loads(data)
-                if decodeData["type"] == "heartbeat":
-                    self.checkHeartbeat(addr)
-                elif decodeData["type"] == "update_status":
-                    self.updateDeviceStatus(decodeData, addr)
-                elif decodeData["type"] == "setting_resp":
-                    if decodeData['result'] == 'ok':
-                        print u'设置参数成功'
-                    else:
-                        print u'设置参数失败'
-                elif decodeData["type"] == "task_control_resp":
-                    if decodeData['task_type'] == 'start':
+
+                if addr == consttype.UiIpAddr:
+                    self.dealwithUiCmd(data)
+                else:
+                    decodeData = json.loads(data)
+                    if decodeData["type"] == "heartbeat":
+                        self.checkHeartbeat(addr)
+                    elif decodeData["type"] == "update_status":
+                        self.updateDeviceStatus(decodeData, addr)
+                    elif decodeData["type"] == "setting_resp":
                         if decodeData['result'] == 'ok':
-                            print u'任务启动成功'
+                            print u'设置参数成功'
                         else:
-                            print u'任务启动失败'
-                    elif decodeData['task_type'] == 'stop':
-                        if decodeData['result'] == 'ok':
-                            print u'任务停止成功'
-                        else:
-                            print u'任务停止失败'
+                            print u'设置参数失败'
+                    elif decodeData["type"] == "task_control_resp":
+                        if decodeData['task_type'] == 'start':
+                            if decodeData['result'] == 'ok':
+                                print u'任务启动成功'
+                            else:
+                                print u'任务启动失败'
+                        elif decodeData['task_type'] == 'stop':
+                            if decodeData['result'] == 'ok':
+                                print u'任务停止成功'
+                            else:
+                                print u'任务停止失败'
             time.sleep(0.1)
 
-    def checkHeartbeat(self, addr):             
+    def dealwithUiCmd(self,data):
+        decodeData = json.loads(data)
+        if decodeData["type"] == "setting":
+            self.socket.sendto(data, (decodeData["target"], consttype.SlaveIpPort))
+        #elif decodeData["type"] == "query":
+
+
+    def checkHeartbeat(self, addr):
         if self.deviceList.has_key(addr):
             self.deviceList[addr].lastUpdateTime = datetime.datetime.now()
             if self.deviceList[addr].onlineStatus == 'offline':
@@ -71,6 +96,7 @@ class DeviceManager(CSingleton):
                 print u'设备 ' + addr + 'online\r\n'
         else:
             newDevice = slaveDevice(self.udpServer, addr)
+
             newDevice.ip = addr
             newDevice.lastUpdateTime = datetime.datetime.now()
             self.registerNewDevice(newDevice)
@@ -145,7 +171,7 @@ class slaveDevice(object):
         self.status = 'unknown'
         self.lastUpdateTime = None
 
-    def startTask(self,param):
+    def startTask(self, param):
         cmd = {"type": "task_control"}
         cmd["task_type"] = "start"
         cmd["param"] = param

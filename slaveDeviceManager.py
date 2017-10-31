@@ -7,11 +7,13 @@ import time
 import os 
 import psutil
 import serial
+import ConfigParser
 
-
-consttype.localIpAddr = (u'127.0.0.1', 6601)
-consttype.masterIpAddr = (u'127.0.0.1', 6600)
-
+consttype.MasterIpAddr = '192.168.1.200'
+consttype.MasterPort = 60000
+consttype.SlaveIpAddr = '192.168.1.11'
+consttype.SlaveIpPort = 60001
+consttype.NotifierPort = 62000
 
 class taskManager(object):
     def __init__(self):
@@ -29,7 +31,7 @@ class taskManager(object):
             
     def doTask(self):
         #task jiexi        
-        #os.system('')
+        os.system(self.task)
         print 'start task'
         self.taskStatus = 1
     
@@ -37,13 +39,12 @@ class taskManager(object):
         if self.taskStatus == 0:
             return  
         #kill process      
-        os.system('')
+        os.system('sudo killall dos_client')
         print 'stop task'
         self.taskStatus = 0
 
     def getTaskStatus(self):
         return self.taskStatus
-
 
 class slaveDeviceManager(object):
     def __init__(self):
@@ -53,25 +54,38 @@ class slaveDeviceManager(object):
         self.m_moudle = DailMoudleManager()
         self.m_taskManager = taskManager()
         self.taskControlBit = True
+        self.readConfig()
+
+    def readConfig(self):
+        cf = ConfigParser.ConfigParser()
+        cf.read(consttype.ConfigPath)
+        consttype.MasterIpAddr = cf.get("netconfig","master_ipaddr")
+        consttype.MasterPort = int(cf.get("netconfig", "master_port"))
+        consttype.SlaveIpPort = int(cf.get("netconfig", "slave_port"))
+        consttype.NotifierPort = int(cf.get("netconfig", "notifier_port"))
 
     def initNetwork(self):
         self.udpServer = socket(AF_INET, SOCK_DGRAM)
-        self.udpServer.bind(consttype.localIpAddr)
+        self.udpServer.bind((consttype.SlaveIpAddr, consttype.SlavePort))
         self.threadListen = threading.Thread(target=self.udpListenTarget, name="udpListen")
         self.threadListen.start()
         self.threadMsgHandler = threading.Thread(target=self.dealwithMsgTarget, name="msgHandler")
         self.threadMsgHandler.start()
 
+        self.udpNotifierServer = socket(AF_INET, SOCK_DGRAM)
+        self.udpNotifierServer.bind((consttype.SlaveIpAddr, consttype.NotifierPort))
+        self.threadListenNotifier = threading.Thread(target=self.notifierListenTarget, name="notifierMsgListen")
+        self.threadListenNotifier.start()
 
     def moudleMonitorWork(self, task):
         moudleStatus = 0
         disconnectTime = 0
-
         while self.taskControlBit:
             if moudleStatus == 0:
                 if self.m_moudle.checkPort():
                     print 'checkPort ok'
                     moudleStatus = 1
+                    self.m_moudle.initMoudle()
                     self.m_moudle.setMoudleMode()
                 else:
                     print 'noport'
@@ -85,7 +99,6 @@ class slaveDeviceManager(object):
                     self.sendUpdateStaus("not register")
             if moudleStatus == 2:
                 self.m_moudle.dialPPP()
-
                 print 'start dial'
                 self.status = "dailing"
                 moudleStatus = 3
@@ -129,7 +142,7 @@ class slaveDeviceManager(object):
         self.m_moudle.stopDialPPP()
 
     def sendMsgToMaster(self, msg):
-        self.udpServer.sendto(msg, consttype.masterIpAddr)
+        self.udpServer.sendto(msg, (consttype.MasterIpAddr,consttype.MasterPort))
 
     def sendHeartbeat(self):
         heartbeat = {"type": "heartbeat"}
@@ -172,6 +185,13 @@ class slaveDeviceManager(object):
             data, addr = self.udpServer.recvfrom(1024)
             self.msgList.append([data, addr])
 
+    def notifierListenTarget(self):
+        while True:
+            data, addr = self.udpNotifierServer.recvfrom(1024)
+            if addr == '127.0.0.1':
+                print data
+                self.sendUpdateStaus("data")
+
     def dealwithMsgTarget(self):
         while True:
             if len(self.msgList) > 0:
@@ -191,8 +211,11 @@ class slaveDeviceManager(object):
                     if decodeData["task_type"] == "start":
                         param = decodeData["param"]
                         ##make task with longlong
-                        task = ""
+                        task = "sudo ./dos_client"
+                        for para in param:
+                            task = task+para+" "
                         self.StartTask(task)
+
                     elif decodeData["task_type"] == "stop":
                         self.StopTask()
                 elif decodeData["type"] == "query":
@@ -207,6 +230,16 @@ class DailMoudleManager(object):
         self.status = 'idle'
         self.atPort = '/dev/ttyUSB0'
         self.timeout = 1
+
+    def initMoudle(self):
+        self.serialCom.write('AT\r\n')
+        time.sleep(0.5)
+        self.serialCom.write('ATE0\r\n')
+        resp = self.serialCom.readlines()
+        for info in resp:
+            if "OK" in info:
+                return True
+        return False
 
     def setMoudleMode(self, mode='default'):
         if not self.status == 'idle':
