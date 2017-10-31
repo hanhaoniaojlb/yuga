@@ -14,6 +14,7 @@ consttype.MasterPort = 60000
 consttype.SlaveIpAddr = '192.168.1.11'
 consttype.SlaveIpPort = 60001
 consttype.NotifierPort = 62000
+consttype.ConfigPath = "./config.conf"
 
 class taskManager(object):
     def __init__(self):
