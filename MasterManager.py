@@ -9,8 +9,7 @@ class interactive(threading.Thread):
 
     def run(self):
         while True:
-
-            print '>>',
+            print '>>'
             cmd = raw_input()
             if cmd == "help":
                 self.echoHelp()
