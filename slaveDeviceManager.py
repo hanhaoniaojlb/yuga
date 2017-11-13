@@ -15,6 +15,7 @@ consttype.MasterPort = 60000
 consttype.SlaveIpAddr = '192.168.1.200'
 consttype.SlavePort = 60001
 consttype.NotifierPort = 62000
+consttype.WorkPath = os.path.split(os.path.realpath(__file__))[0]+"/"
 consttype.ConfigPath = os.path.split(os.path.realpath(__file__))[0]+"/config.conf"
 
 class taskManager(object):
@@ -302,7 +303,6 @@ class DailMoudleManager(object):
 
     def checkPppStatus(self):
         ifInfos = psutil.net_if_addrs()
-        print ifInfos
         if 'ppp0' in ifInfos.keys():
             return True
         else:
@@ -325,7 +325,8 @@ class DailMoudleManager(object):
             return True
 
     def dialPPP(self):
-        os.system('./yuga.lte-pppd&')
+        cmd = "sudo " + consttype.WorkPath + "yuga.lte-pppd &"
+        os.system(cmd)
         self.status = 'dialing'
         time.sleep(2) 
         
