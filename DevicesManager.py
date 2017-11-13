@@ -81,7 +81,7 @@ class DeviceManager(CSingleton):
                                 print u'任务停止成功'
                             else:
                                 print u'任务停止失败'
-            time.sleep(0.1)
+            #time.sleep(0.01)
 
     def dealwithUiCmd(self,data):
         decodeData = json.loads(data)
@@ -96,8 +96,6 @@ class DeviceManager(CSingleton):
             target = decodeData["target"]
             for slave in target:
                 self.sendUiCmdTaskControl(slave, decodeData["task_type"], decodeData["param"])
-        elif decodeData["type"] == "query":
-            target = decodeData["target"]
 
 
     def sendUiCmdTaskControl(self, slave, control, param):
@@ -148,7 +146,9 @@ class DeviceManager(CSingleton):
     def updateDeviceStatus(self, decodeData, addr):
         if self.deviceList.has_key(addr):
             self.deviceList[addr].status = decodeData['status']
-
+            self.deviceList[addr].desc = decodeData['desc']
+            if self.deviceList[addr].status == "running":
+                self.deviceList[addr].connections = int(self.deviceList[addr].desc)
         decodeData["ip"] = addr
         js = json.dumps(decodeData, skipkeys=True)
         self.udpServer.sendto(js, (consttype.UiIpAddr, consttype.UiPort))
@@ -156,7 +156,8 @@ class DeviceManager(CSingleton):
 
     def showAllDevices(self):
         for device in self.deviceList:
-            print u'设备'+ self.deviceList[device].name + u' ' + self.deviceList[device].onlineStatus + u'  设备状态：' +  self.deviceList[device].status+ u'  最后更新时间:' + self.deviceList[device].lastUpdateTime.strftime('%Y-%m-%d %H:%M:%S')
+            print u'设备'+ self.deviceList[device].name + u' ' + self.deviceList[device].onlineStatus + u'  设备状态：' +  self.deviceList[device].status +u'  desc：' +  self.deviceList[device].desc\
+                  + u'  最后更新时间:' + self.deviceList[device].lastUpdateTime.strftime('%Y-%m-%d %H:%M:%S')
 
     def showOneDeviceStatus(self,name):
         if name in self.deviceList.keys():
@@ -216,9 +217,10 @@ class slaveDevice(object):
         self.name = name
         self.ip = ''
         self.onlineStatus  = 'online'
-        self.status = 'unknown'
+        self.status = 'idle'
         self.connections = 0
         self.lastUpdateTime = None
+        self.desc = ''
 
     def startTask(self, param):
         cmd = {"type": "task_control"}
