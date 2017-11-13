@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import consttype
+import consttype 
 from socket import *
 import threading
 import json
@@ -8,13 +8,14 @@ import os
 import psutil
 import serial
 import ConfigParser
-
+import sys
+import struct
 consttype.MasterIpAddr = '192.168.1.200'
 consttype.MasterPort = 60000
 consttype.SlaveIpAddr = '192.168.1.200'
 consttype.SlavePort = 60001
 consttype.NotifierPort = 62000
-consttype.ConfigPath = "./config.conf"
+consttype.ConfigPath = os.path.split(os.path.realpath(__file__))[0]+"/config.conf"
 
 class taskManager(object):
     def __init__(self):
@@ -22,7 +23,7 @@ class taskManager(object):
         self.taskStatus = 0
    
     def doNewTask(self, task):
-        
+        print "do new task " + task
         if self.currentTask == task and self.taskStatus == 1:
             return
         else:
@@ -36,6 +37,7 @@ class taskManager(object):
         print self.task
         os.system("sudo route del default")
         os.system("sudo route add default dev ppp0")
+        #os.system(self.task + " 2>/dev/null 1>/dev/null &")
         os.system(self.task + " &")
         self.taskStatus = 1
         print 'start task'
@@ -62,7 +64,8 @@ class slaveDeviceManager(object):
         self.readConfig()
         self.ppp0ip = ""
         self.threadTask = None
-    
+        self.connections = 0
+
     def readConfig(self):
         cf = ConfigParser.ConfigParser()
         cf.read(consttype.ConfigPath)
@@ -81,7 +84,7 @@ class slaveDeviceManager(object):
         self.threadMsgHandler.start()
 
         self.udpNotifierServer = socket(AF_INET, SOCK_DGRAM)
-        self.udpNotifierServer.bind((consttype.SlaveIpAddr, consttype.NotifierPort))
+        self.udpNotifierServer.bind(("127.0.0.1", consttype.NotifierPort))
         self.threadListenNotifier = threading.Thread(target=self.notifierListenTarget, name="notifierMsgListen")
         self.threadListenNotifier.start()
         
@@ -120,8 +123,8 @@ class slaveDeviceManager(object):
                     print 'register fail'
                     self.sendUpdateStaus("register fail")
             if moudleStatus == 2:
-                self.m_moudle.dialPPP()
                 print 'start dial'
+                self.m_moudle.dialPPP()
                 moudleStatus = 3
             if moudleStatus == 3:
                 if self.m_moudle.checkPppStatus():
@@ -137,7 +140,7 @@ class slaveDeviceManager(object):
                         task += " -o "+self.ppp0ip
                         self.m_taskManager.doNewTask(task)
                         self.status = "running"
-                        self.sendUpdateStaus("")
+                        self.sendUpdateStaus("0")
                         moudleStatus = 5
             if moudleStatus == 5:
                 time.sleep(0.5)
@@ -209,11 +212,10 @@ class slaveDeviceManager(object):
     def notifierListenTarget(self):
         while True:
             data, addr = self.udpNotifierServer.recvfrom(1024)
-            print data
-            print addr
+            data_i, = struct.unpack('i',data)
+            print data_i
             if addr == '127.0.0.1':
-                print data
-                self.sendUpdateStaus("data")
+                self.sendUpdateStaus(str(data_i))
 
     def dealwithMsgTarget(self):
         while True:
@@ -301,6 +303,7 @@ class DailMoudleManager(object):
 
     def checkPppStatus(self):
         ifInfos = psutil.net_if_addrs()
+        print ifInfos
         if 'ppp0' in ifInfos.keys():
             return True
         else:
@@ -314,6 +317,8 @@ class DailMoudleManager(object):
             return False
 
     def checkConnectionToInternet(self):
+        os.system("sudo route del default")
+        os.system("sudo route add default dev ppp0")
         tmp = os.popen('ping -c 3 -i 0.5 114.114.114.114 | grep \'0 received\' | wc -l').readline()
         if tmp != '0\n':
             return False
@@ -334,7 +339,6 @@ class DailMoudleManager(object):
 
 slaveDevice = slaveDeviceManager()
 slaveDevice.initNetwork()
-
 #slaveDevice.getPppIpAddr()
 while True:
     slaveDevice.sendHeartbeat()    
