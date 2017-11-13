@@ -214,8 +214,7 @@ class slaveDeviceManager(object):
             data, addr = self.udpNotifierServer.recvfrom(1024)
             data_i, = struct.unpack('i',data)
             print data_i
-            if addr == '127.0.0.1':
-                self.sendUpdateStaus(str(data_i))
+            self.sendUpdateStaus(str(data_i))
 
     def dealwithMsgTarget(self):
         while True:
