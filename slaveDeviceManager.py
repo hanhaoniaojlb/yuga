@@ -236,7 +236,7 @@ class slaveDeviceManager(object):
                     if decodeData["task_type"] == "start":
                         param = decodeData["param"]
                         ##make task with longlong
-                        task = "sudo ./dos_client "
+                        task = "sudo " + consttype.WorkPath + "dos_client "
                         for para in param:
                             task = task+para+" "
                         self.StartTask(task)
