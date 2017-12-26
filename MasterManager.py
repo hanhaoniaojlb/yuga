@@ -55,6 +55,7 @@ class interactive(threading.Thread):
                     DeviceManager().setOneDeviceMode(name, mode)
             else:
                 print 'Unknown Cmd'
+        time.sleep(0.5)
 
     def echoHelp(self):
         print "devices                          :----- show all devices"
@@ -66,11 +67,15 @@ class interactive(threading.Thread):
         print "setmodeall [mode]                :----- set moudle work mode"
         print "setmode [device name] [mode]     :----- set moudle work mode"
 
-DeviceManager().initNetwork()
-ia = interactive()
-ia.start()
+if __name__ == '__main__':
+    try:
 
-while True:
-    DeviceManager().checkDeviceOnline()
-    time.sleep(2)
-
+        DeviceManager().initNetwork()
+        ia = interactive()
+        ia.setDaemon(True)
+        ia.start()
+        while True:
+            DeviceManager().checkDeviceOnline()
+            time.sleep(2)
+    except Exception, exc:
+        print exc

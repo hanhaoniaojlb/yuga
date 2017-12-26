@@ -14,7 +14,7 @@ PPPD_PID=
 echo "Starting pppd"
 
 #pppd $*
-pppd connect 'chat -s -v  "ABORT" "NO CARRIER" "" AT OK AT+CGDCONT=1,\"IP\",\"\" OK ATD*99***1# CONNECT' /dev/ttyUSB0 115200 nodetach debug nolock noauth defaultroute usepeerdns  crtscts user card password card -pc -ac $*
+pppd connect 'chat -s -v  "ABORT" "NO CARRIER" "" AT OK AT+CGDCONT=1,\"IP\",\"ndsc.dpt5.cn\" OK ATD*99***1# CONNECT' /dev/ttyUSB0 115200 nodetach debug nolock noauth defaultroute usepeerdns  crtscts user card password card -pc -ac $*
 
 PPPD_EXIT=$?
 PPPD_PID=$!

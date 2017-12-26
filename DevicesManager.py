@@ -29,7 +29,6 @@ class DeviceManager(CSingleton):
         cf = ConfigParser.ConfigParser()
         cf.read(consttype.ConfigPath)
 
-
         consttype.MasterIpAddr = cf.get("netconfig","master_ipaddr")
         consttype.MasterPort = int(cf.get("netconfig", "master_port"))
         consttype.SlaveIpPort = int(cf.get("netconfig", "slave_port"))
@@ -42,8 +41,10 @@ class DeviceManager(CSingleton):
         self.udpServer = socket(AF_INET, SOCK_DGRAM)
         self.udpServer.bind((consttype.MasterIpAddr, consttype.MasterPort))
         self.threadListen = threading.Thread(target=self.udpListenTarget, name="udpListen")
+        self.threadListen.setDaemon(True)
         self.threadListen.start()
         self.threadMsgHandler = threading.Thread(target=self.dealwithMsgTarget, name="msgHandler")
+        self.threadMsgHandler.setDaemon(True)
         self.threadMsgHandler.start()
 
     def udpListenTarget(self):

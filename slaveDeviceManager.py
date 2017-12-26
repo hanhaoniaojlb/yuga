@@ -48,7 +48,7 @@ class taskManager(object):
         if self.taskStatus == 0:
             return  
         #kill process      
-        os.system('sudo killall dos_client')
+        os.system('sudo killall 9 dos_client')
         print 'stop task'
         self.taskStatus = 0
 
@@ -80,13 +80,16 @@ class slaveDeviceManager(object):
         self.udpServer = socket(AF_INET, SOCK_DGRAM)
         self.udpServer.bind((consttype.SlaveIpAddr, consttype.SlavePort))
         self.threadListen = threading.Thread(target=self.udpListenTarget, name="udpListen")
+        self.threadListen.setDaemon(True)
         self.threadListen.start()
         self.threadMsgHandler = threading.Thread(target=self.dealwithMsgTarget, name="msgHandler")
+        self.threadMsgHandler.setDaemon(True)
         self.threadMsgHandler.start()
 
         self.udpNotifierServer = socket(AF_INET, SOCK_DGRAM)
         self.udpNotifierServer.bind(("127.0.0.1", consttype.NotifierPort))
         self.threadListenNotifier = threading.Thread(target=self.notifierListenTarget, name="notifierMsgListen")
+        self.threadListenNotifier.setDaemon(True)
         self.threadListenNotifier.start()
         
         self.sendUpdateStaus("")
@@ -214,8 +217,9 @@ class slaveDeviceManager(object):
         while True:
             data, addr = self.udpNotifierServer.recvfrom(1024)
             data_i, = struct.unpack('i',data)
-            print data_i
-            self.sendUpdateStaus(str(data_i))
+           # print data_i
+            if self.status == "running":
+                self.sendUpdateStaus(str(data_i))
 
     def dealwithMsgTarget(self):
         while True:
@@ -331,15 +335,21 @@ class DailMoudleManager(object):
         time.sleep(2) 
         
     def stopDialPPP(self):
-        os.system('killall pppd')
+        os.system('sudo killall pppd')
         time.sleep(2)
         self.status = 'idle'
 
 
+def quit(signum, frame):
+    print 'You choose to stop me.'
+    sys.exit()
 
-slaveDevice = slaveDeviceManager()
-slaveDevice.initNetwork()
-#slaveDevice.getPppIpAddr()
-while True:
-    slaveDevice.sendHeartbeat()    
-    time.sleep(3)
+if __name__ == '__main__':
+    try:
+        slaveDevice = slaveDeviceManager()
+        slaveDevice.initNetwork()
+        while True:
+            slaveDevice.sendHeartbeat()    
+            time.sleep(3)
+    except Exception, exc:
+        print exc
