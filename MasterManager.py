@@ -69,7 +69,6 @@ class interactive(threading.Thread):
 
 if __name__ == '__main__':
     try:
-
         DeviceManager().initNetwork()
         ia = interactive()
         ia.setDaemon(True)

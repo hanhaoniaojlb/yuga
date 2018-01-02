@@ -11,7 +11,7 @@ import ConfigParser
 consttype.MasterIpAddr = '192.168.1.200'
 consttype.MasterPort = 60000
 consttype.SlaveIpPort = 60001
-consttype.UiIpAddr = '192.168.1.39'
+consttype.UiIpAddr = '192.168.1.200'
 consttype.UiPort = 60002
 consttype.ConfigPath = "./config.conf"
 
@@ -49,9 +49,13 @@ class DeviceManager(CSingleton):
 
     def udpListenTarget(self):
         while True:
-            data, ip = self.udpServer.recvfrom(1024)
-            addr = ip[0]
-            self.msgList.append([data, addr])
+            try:
+                data, ip = self.udpServer.recvfrom(2048)
+                addr = ip[0]
+                self.msgList.append([data, addr])
+            except Exception , e:
+                print e
+
 
     def dealwithMsgTarget(self):
         while True:
@@ -86,10 +90,15 @@ class DeviceManager(CSingleton):
 
     def dealwithUiCmd(self,data):
         decodeData = json.loads(data)
+        print decodeData
+        cmd = {}
         if decodeData["type"] == "setting":
             for (key, device) in self.deviceList.items():
                 if device.onlineStatus == "online":
                     self.udpServer.sendto(data, (device.name, consttype.SlaveIpPort))
+            cmd["type"] = "setting_resp"
+            cmd["result"] = "ok"
+            cmd["error"] = ""
         elif decodeData["type"] == "query":
             target = decodeData["target"]
             self.reportDevicesStatusToUi(target)
@@ -97,7 +106,11 @@ class DeviceManager(CSingleton):
             target = decodeData["target"]
             for slave in target:
                 self.sendUiCmdTaskControl(slave, decodeData["task_type"], decodeData["param"])
-
+            cmd["type"] = "task_control_resp"
+            cmd["result"] = "ok"
+            cmd["task_type"] = decodeData["task_type"]
+        js = json.dumps(cmd, skipkeys=True)
+        self.udpServer.sendto(js, (consttype.UiIpAddr, consttype.UiPort))
 
     def sendUiCmdTaskControl(self, slave, control, param):
         paramEncode = []
@@ -138,11 +151,14 @@ class DeviceManager(CSingleton):
                 print u'设备 ' + addr + 'online\r\n'
         else:
             newDevice = slaveDevice(self.udpServer, addr)
-
             newDevice.ip = addr
             newDevice.lastUpdateTime = datetime.datetime.now()
             self.registerNewDevice(newDevice)
             print u'新设备 ' + addr + u'注册\r\n'
+            cmd = {"type": "update_status","status":"idle","desc":""}
+            cmd["ip"] = addr
+            js = json.dumps(cmd, skipkeys=True)
+            self.udpServer.sendto(js, (consttype.UiIpAddr, consttype.UiPort))
 
     def updateDeviceStatus(self, decodeData, addr):
         if self.deviceList.has_key(addr):
